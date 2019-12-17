@@ -10,6 +10,14 @@ namespace BlockArchiver
     {
         static void Main(string[] args)
         {
+            //Console.WriteLine(Environment.ProcessorCount);
+            //Console.WriteLine(Environment.SystemPageSize);
+
+            var blockArchiver = new BlockArchiver();
+            //var k = blockArchiver.CompressFile(@"Справочник сотрудника.docx");
+            //blockArchiver.DecompressFile(@"Справочник сотрудника.docx.gz", k.Item1, k.Item2);
+
+            Console.ReadKey();
         }
     }
 }
