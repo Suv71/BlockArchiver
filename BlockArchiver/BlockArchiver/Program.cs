@@ -12,9 +12,9 @@ namespace BlockArchiver
         {
             var blockArchiver = new BlockArchiver();
             blockArchiver.Progress += OnProgress;
-            //var k = blockArchiver.CompressFile("Справочник сотрудника.docx", "Справочник сотрудника.gz");
+            //var k = blockArchiver.CompressFile("datagrip-2019.1.1.exe", "datagrip-2019.1.1.gz");
 
-            var k = blockArchiver.DecompressFile("Справочник сотрудника.gz", "new-Справочник сотрудника.docx");
+            var k = blockArchiver.DecompressFile("datagrip-2019.1.1.gz", "new-datagrip-2019.1.1.exe");
 
             Console.WriteLine($"Compressing is over. Result = {k}");
 
