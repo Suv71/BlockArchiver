@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -30,6 +31,7 @@ namespace BlockArchiver
         private ManualResetEvent _readCompletedEvent;
         private ManualResetEvent _writeCompletedEvent;
         private ManualResetEvent _isWriteActivateEvent;
+        private Stopwatch _watch;
 
         public event EventHandler<ProgressEventArgs> Progress;
 
@@ -43,14 +45,16 @@ namespace BlockArchiver
             _readCompletedEvent = new ManualResetEvent(false);
             _writeCompletedEvent = new ManualResetEvent(false);
             _isWriteActivateEvent = new ManualResetEvent(false);
+            _watch = new Stopwatch();
         }
 
-        public int CompressFile(string inputFileName, string outputFileName)
+        public long CompressFile(string inputFileName, string outputFileName)
         {
             _inputFileName = inputFileName;
             _outputFileName = outputFileName;
 
             //ReadOriginalBlocks();
+            _watch.Start();
 
             _readThread = new Thread(ReadOriginalBlocks);
             _readThread.Start();
@@ -67,17 +71,20 @@ namespace BlockArchiver
             _writeThread.Start();
 
             //WriteBlocks();
-
+            
             //WaitHandle.WaitAll(new WaitHandle[] {_writeCompletedEvent });
             _writeThread.Join();
-
-            return 1;
+            _watch.Stop();
+            return _watch.ElapsedMilliseconds;
         }
 
-        public int DecompressFile(string inputFileName, string outputFileName)
+        public long DecompressFile(string inputFileName, string outputFileName)
         {
             _inputFileName = inputFileName;
             _outputFileName = outputFileName;
+
+            _watch.Start();
+
             _readThread = new Thread(ReadCompressedBlocks);
             _readThread.Start();
 
@@ -99,7 +106,9 @@ namespace BlockArchiver
             //WaitHandle.WaitAll(new WaitHandle[] { _writeCompletedEvent });
             _writeThread.Join();
 
-            return 1;
+            _watch.Stop();
+
+            return _watch.ElapsedMilliseconds;
         }
 
         private void ReadOriginalBlocks()
