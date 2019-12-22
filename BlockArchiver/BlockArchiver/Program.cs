@@ -12,9 +12,9 @@ namespace BlockArchiver
         {
             var blockArchiver = new BlockArchiver();
             blockArchiver.Progress += OnProgress;
-            //var k = blockArchiver.CompressFile("паттерны 5.mp4", "паттерны 5.gz");
+            var k = blockArchiver.CompressFile("Windows 7 Ultimate x64.iso", "Windows 7 Ultimate x64.gz");
 
-            var k = blockArchiver.DecompressFile("паттерны 5.gz", "new-паттерны 5.mp4");
+            //var k = blockArchiver.DecompressFile("Windows 7 Ultimate x64.gz", "new-Windows 7 Ultimate x64.iso");
 
             Console.WriteLine($"Compressing is over. Result = {k}");
 

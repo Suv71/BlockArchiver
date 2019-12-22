@@ -31,20 +31,24 @@ namespace BlockArchiver
         private ManualResetEvent _readCompletedEvent;
         private ManualResetEvent _writeCompletedEvent;
         private ManualResetEvent _isWriteActivateEvent;
+        private ManualResetEvent _isReadActivateEvent;
         private Stopwatch _watch;
+        private long _memoryLimit;
 
         public event EventHandler<ProgressEventArgs> Progress;
 
         public BlockArchiver()
         {
-            _blockSize = 1024 * 1024; // 1 Мб
+            _memoryLimit = 1024 * 1024 * 1024; // 1 Гб
+            _blockSize = 4 * 1024 * 1024; // 1 Мб
             _readBlocksQueue = new ConcurrentQueue<BlockInfo>();
             _blocksToWriteQueue = new ConcurrentDictionary<int, BlockInfo>();
             _workThreads = new Thread[Environment.ProcessorCount];
             _isCancelled = false;
-            _readCompletedEvent = new ManualResetEvent(false);
-            _writeCompletedEvent = new ManualResetEvent(false);
+            //_readCompletedEvent = new ManualResetEvent(false);
+            //_writeCompletedEvent = new ManualResetEvent(false);
             _isWriteActivateEvent = new ManualResetEvent(false);
+            _isReadActivateEvent = new ManualResetEvent(true);
             _watch = new Stopwatch();
         }
 
@@ -129,6 +133,12 @@ namespace BlockArchiver
                     }
                     inputStream.Read(readBlock, 0, readBlock.Length);
                     _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+
+                    if (System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
+                    {
+                        _isReadActivateEvent.Reset();
+                        _isReadActivateEvent.WaitOne();
+                    }
                 }
                 //_readCompletedEvent.Set();
             }
@@ -211,15 +221,21 @@ namespace BlockArchiver
                 var currentBlockNumber = 1;
                 while (!_blocksToWriteQueue.IsEmpty || _readThread.IsAlive || _workThreads.Any(th => th.IsAlive))
                 {
-                    if (_blocksToWriteQueue.TryRemove(currentBlockNumber, out var tempBlock))
+                    if (_blocksToWriteQueue.IsEmpty
+                            && !_isReadActivateEvent.WaitOne(0, false))
                     {
-
+                        GC.Collect();
+                        _isReadActivateEvent.Set();
+                    }
+                    else if (_blocksToWriteQueue.TryRemove(currentBlockNumber, out var tempBlock))
+                    {
                         outputStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
                         Progress.Invoke(this, new ProgressEventArgs(currentBlockNumber));
                         currentBlockNumber++;
                     }
                     else
                     {
+                        _isWriteActivateEvent.Reset();
                         _isWriteActivateEvent.WaitOne();
                     }
                 }
