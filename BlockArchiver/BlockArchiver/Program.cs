@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BlockArchiver
 {
@@ -12,9 +8,9 @@ namespace BlockArchiver
         {
             var blockArchiver = new BlockArchiver();
             blockArchiver.Progress += OnProgress;
-            //var k = blockArchiver.CompressFile("Справочник сотрудника.docx", "Справочник сотрудника.gz");
+            var k = blockArchiver.CompressFile("Fias.backup", "Fias.gz");
 
-            var k = blockArchiver.DecompressFile("Справочник сотрудника.gz", "new-Справочник сотрудника.docx");
+            //var k = blockArchiver.DecompressFile("Fias.gz", "new-Fias.backup");
 
             Console.WriteLine($"Compressing is over. Result = {k}");
 
