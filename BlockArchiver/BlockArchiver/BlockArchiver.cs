@@ -12,208 +12,62 @@ using System.Threading.Tasks;
 
 namespace BlockArchiver
 {
-    public struct BlockInfo
+    public abstract class BlockArchiver
     {
-        public int Number { get; set; }
-        public byte[] Data { get; set; }
-    }
-
-    public class BlockArchiver
-    {
-        private int _blockSize;
-        private ConcurrentQueue<BlockInfo> _readBlocksQueue;
-        private ConcurrentDictionary<int, BlockInfo> _blocksToWriteQueue;
-        private Thread _readThread;
-        private Thread _writeThread;
-        private Thread[] _workThreads;
-        private string _inputFileName;
-        private string _outputFileName;
-        private bool _isCancelled;
-        private ManualResetEvent _isWriteActivateEvent;
-        private ManualResetEvent _isReadActivateEvent;
-        private Stopwatch _watch;
-        private long _memoryLimit;
+        protected const int _blockSize = 4 * 1024 * 1024;
+        protected ConcurrentQueue<BlockInfo> _readBlocksQueue;
+        protected ConcurrentDictionary<int, BlockInfo> _blocksToWriteQueue;
+        protected ThreadsDispatcher _dispathcer;
+        protected string _inputFileName;
+        protected string _outputFileName;
+        protected bool _isCancelled;
+        protected Stopwatch _watch;
+        protected long _memoryLimit;
 
         public event EventHandler<ProgressEventArgs> Progress;
 
-        public BlockArchiver()
+        public BlockArchiver(string inputFileName, string outputFileName)
         {
+            _dispathcer = new ThreadsDispatcher();
+            _inputFileName = inputFileName;
+            _outputFileName = outputFileName;
             _memoryLimit = (long)(new ComputerInfo().AvailablePhysicalMemory / 2);
-            _blockSize = 4 * 1024 * 1024; // 1 Мб
             _readBlocksQueue = new ConcurrentQueue<BlockInfo>();
             _blocksToWriteQueue = new ConcurrentDictionary<int, BlockInfo>();
-            _workThreads = new Thread[Environment.ProcessorCount];
             _isCancelled = false;
-            _isWriteActivateEvent = new ManualResetEvent(false);
-            _isReadActivateEvent = new ManualResetEvent(true);
             _watch = new Stopwatch();
         }
-
-        public long CompressFile(string inputFileName, string outputFileName)
+        
+        public virtual long Do()
         {
-            _inputFileName = inputFileName;
-            _outputFileName = outputFileName;
-
             _watch.Start();
 
-            _readThread = new Thread(ReadOriginalBlocks);
-            _readThread.Start();
-
-            for (int i = 0; i < _workThreads.Length; i++)
-            {
-                _workThreads[i] = new Thread(CompressBlock);
-                _workThreads[i].Start();
-            }
-
-            _writeThread = new Thread(WriteBlocks);
-            _writeThread.Start();
-
-            _writeThread.Join();
-            _watch.Stop();
-            return _watch.ElapsedMilliseconds;
-        }
-
-        public long DecompressFile(string inputFileName, string outputFileName)
-        {
-            _inputFileName = inputFileName;
-            _outputFileName = outputFileName;
-
-            _watch.Start();
-
-            _readThread = new Thread(ReadCompressedBlocks);
-            _readThread.Start();
-
-            for (int i = 0; i < _workThreads.Length; i++)
-            {
-                _workThreads[i] = new Thread(DecompressBlock);
-                _workThreads[i].Start();
-            }
-
-            _writeThread = new Thread(WriteBlocks);
-            _writeThread.Start();
-
-            _writeThread.Join();
+            _dispathcer.StartReadThread(ReadBlocks);
+            _dispathcer.StartProcessThreads(ProcessReadBlocks);
+            _dispathcer.StartWriteThread(WriteBlocks);
+            _dispathcer.WaitWorkFinish();
 
             _watch.Stop();
 
             return _watch.ElapsedMilliseconds;
         }
 
-        private void ReadOriginalBlocks()
-        {
-            using (var inputStream = File.OpenRead(_inputFileName))
-            {
-                var currentBlockNumber = 1;
-                byte[] readBlock;
-                while (inputStream.Position < inputStream.Length)
-                {
-                    if (inputStream.Length - inputStream.Position >= _blockSize)
-                    {
-                        readBlock = new byte[_blockSize];
-                    }
-                    else
-                    {
-                        readBlock = new byte[inputStream.Length - inputStream.Position];
-                    }
-                    inputStream.Read(readBlock, 0, readBlock.Length);
-                    _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+        protected abstract void ReadBlocks();
 
-                    if (Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
-                    {
-                        _isReadActivateEvent.Reset();
-                        _isReadActivateEvent.WaitOne();
-                    }
-                }
-            }
-        }
+        protected abstract void ProcessReadBlocks();
 
-        private void ReadCompressedBlocks()
-        {
-            using (var inputStream = File.OpenRead(_inputFileName))
-            {
-                var currentBlockNumber = 1;
-                byte[] readBlock;
-                var lengthBlock = new byte[8];
-
-                while (inputStream.Position < inputStream.Length)
-                {
-                    inputStream.Read(lengthBlock, 0, lengthBlock.Length);
-                    var compressedBlockLength = BitConverter.ToInt32(lengthBlock, 4);
-
-                    readBlock = new byte[compressedBlockLength];
-                    lengthBlock.CopyTo(readBlock, 0);
-
-                    inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
-
-                    _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
-
-                    if (Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
-                    {
-                        _isReadActivateEvent.Reset();
-                        _isReadActivateEvent.WaitOne();
-                    }
-                }
-            }
-        }
-
-        private void CompressBlock()
-        {
-            while (!_readBlocksQueue.IsEmpty || _readThread.IsAlive)
-            {
-                if (_readBlocksQueue.TryDequeue(out var tempBlock))
-                {
-                    using (var memoryStream = new MemoryStream())
-                    {
-                        using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress))
-                        {
-                            gzipStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
-                        }
-                        var compressedBlock = memoryStream.ToArray();
-                        var compressedBlockLengthInBytes = BitConverter.GetBytes(compressedBlock.Length);
-                        compressedBlockLengthInBytes.CopyTo(compressedBlock, 4);
-                        tempBlock.Data = compressedBlock;
-                        _blocksToWriteQueue.TryAdd(tempBlock.Number, tempBlock);
-                        _isWriteActivateEvent.Set();
-                    }
-                }
-            }
-        }
-
-        private void DecompressBlock()
-        {
-            while (!_readBlocksQueue.IsEmpty || _readThread.IsAlive)
-            {
-                if (_readBlocksQueue.TryDequeue(out var tempBlock))
-                {
-                    var uncompressedBlockSize = BitConverter.ToInt32(tempBlock.Data, tempBlock.Data.Length - 4);
-                    var uncompressedBlock = new byte[uncompressedBlockSize];
-
-                    using (var memoryStream = new MemoryStream(tempBlock.Data))
-                    {
-                        using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
-                        {
-                            gzipStream.Read(uncompressedBlock, 0, uncompressedBlockSize);
-                        }
-                        tempBlock.Data = uncompressedBlock;
-                        _blocksToWriteQueue.TryAdd(tempBlock.Number, tempBlock);
-                        _isWriteActivateEvent.Set();
-                    }
-                }
-            }
-        }
-
-        private void WriteBlocks()
+        protected virtual void WriteBlocks()
         {
             using (var outputStream = File.Open(_outputFileName, FileMode.Append))
             {
                 var currentBlockNumber = 1;
-                while (!_blocksToWriteQueue.IsEmpty || _readThread.IsAlive || _workThreads.Any(th => th.IsAlive))
+                while (!_blocksToWriteQueue.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver())
                 {
                     if (_blocksToWriteQueue.IsEmpty
-                            && !_isReadActivateEvent.WaitOne(0, false))
+                            && _dispathcer.IsReadingOnPause())
                     {
                         GC.Collect();
-                        _isReadActivateEvent.Set();
+                        _dispathcer.ContinueReading();
                     }
                     else if (_blocksToWriteQueue.TryRemove(currentBlockNumber, out var tempBlock))
                     {
@@ -223,21 +77,10 @@ namespace BlockArchiver
                     }
                     else
                     {
-                        _isWriteActivateEvent.Reset();
-                        _isWriteActivateEvent.WaitOne();
+                        _dispathcer.PauseWriting();
                     }
                 }
             }
-        }
-    }
-
-    public class ProgressEventArgs : EventArgs
-    {
-        public int Count { get; set; }
-
-        public ProgressEventArgs(int count)
-        {
-            Count = count;
         }
     }
 }

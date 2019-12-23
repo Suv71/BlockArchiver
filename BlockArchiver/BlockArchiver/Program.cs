@@ -6,11 +6,14 @@ namespace BlockArchiver
     {
         static void Main(string[] args)
         {
-            var blockArchiver = new BlockArchiver();
-            blockArchiver.Progress += OnProgress;
-            var k = blockArchiver.CompressFile("Fias.backup", "Fias.gz");
+            BlockArchiver archiver;
 
-            //var k = blockArchiver.DecompressFile("Fias.gz", "new-Fias.backup");
+            archiver = new Compressor("Fias.backup", "Fias.gz");
+            //archiver = new Decompressor("Fias.gz", "new-Fias.backup");
+
+            archiver.Progress += OnProgress;
+
+            var k = archiver.Do();
 
             Console.WriteLine($"Compressing is over. Result = {k}");
 

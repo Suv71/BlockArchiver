@@ -45,8 +45,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockArchiver.cs" />
+    <Compile Include="BlockInfo.cs" />
+    <Compile Include="Compressor.cs" />
+    <Compile Include="Decompressor.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="ProgressEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ThreadsDispatcher.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
