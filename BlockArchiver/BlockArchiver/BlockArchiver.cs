@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic.Devices;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -28,8 +29,6 @@ namespace BlockArchiver
         private string _inputFileName;
         private string _outputFileName;
         private bool _isCancelled;
-        private ManualResetEvent _readCompletedEvent;
-        private ManualResetEvent _writeCompletedEvent;
         private ManualResetEvent _isWriteActivateEvent;
         private ManualResetEvent _isReadActivateEvent;
         private Stopwatch _watch;
@@ -39,14 +38,12 @@ namespace BlockArchiver
 
         public BlockArchiver()
         {
-            _memoryLimit = 1024 * 1024 * 1024; // 1 Гб
+            _memoryLimit = (long)(new ComputerInfo().AvailablePhysicalMemory / 2);
             _blockSize = 4 * 1024 * 1024; // 1 Мб
             _readBlocksQueue = new ConcurrentQueue<BlockInfo>();
             _blocksToWriteQueue = new ConcurrentDictionary<int, BlockInfo>();
             _workThreads = new Thread[Environment.ProcessorCount];
             _isCancelled = false;
-            //_readCompletedEvent = new ManualResetEvent(false);
-            //_writeCompletedEvent = new ManualResetEvent(false);
             _isWriteActivateEvent = new ManualResetEvent(false);
             _isReadActivateEvent = new ManualResetEvent(true);
             _watch = new Stopwatch();
@@ -57,7 +54,6 @@ namespace BlockArchiver
             _inputFileName = inputFileName;
             _outputFileName = outputFileName;
 
-            //ReadOriginalBlocks();
             _watch.Start();
 
             _readThread = new Thread(ReadOriginalBlocks);
@@ -69,14 +65,9 @@ namespace BlockArchiver
                 _workThreads[i].Start();
             }
 
-            //CompressBlock();
-
             _writeThread = new Thread(WriteBlocks);
             _writeThread.Start();
 
-            //WriteBlocks();
-            
-            //WaitHandle.WaitAll(new WaitHandle[] {_writeCompletedEvent });
             _writeThread.Join();
             _watch.Stop();
             return _watch.ElapsedMilliseconds;
@@ -92,22 +83,15 @@ namespace BlockArchiver
             _readThread = new Thread(ReadCompressedBlocks);
             _readThread.Start();
 
-            //ReadCompressedBlocks();
-
             for (int i = 0; i < _workThreads.Length; i++)
             {
                 _workThreads[i] = new Thread(DecompressBlock);
                 _workThreads[i].Start();
             }
 
-            //DecompressBlock();
-
             _writeThread = new Thread(WriteBlocks);
             _writeThread.Start();
 
-            //WriteBlocks();
-
-            //WaitHandle.WaitAll(new WaitHandle[] { _writeCompletedEvent });
             _writeThread.Join();
 
             _watch.Stop();
@@ -134,13 +118,12 @@ namespace BlockArchiver
                     inputStream.Read(readBlock, 0, readBlock.Length);
                     _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
 
-                    if (System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
+                    if (Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
                     {
                         _isReadActivateEvent.Reset();
                         _isReadActivateEvent.WaitOne();
                     }
                 }
-                //_readCompletedEvent.Set();
             }
         }
 
@@ -163,14 +146,19 @@ namespace BlockArchiver
                     inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
 
                     _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+
+                    if (Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
+                    {
+                        _isReadActivateEvent.Reset();
+                        _isReadActivateEvent.WaitOne();
+                    }
                 }
-                //_readCompletedEvent.Set();
             }
         }
 
         private void CompressBlock()
         {
-            while (!_readBlocksQueue.IsEmpty || _readThread.IsAlive /*!_readCompletedEvent.WaitOne(0, false)*/)
+            while (!_readBlocksQueue.IsEmpty || _readThread.IsAlive)
             {
                 if (_readBlocksQueue.TryDequeue(out var tempBlock))
                 {
@@ -193,7 +181,7 @@ namespace BlockArchiver
 
         private void DecompressBlock()
         {
-            while (!_readBlocksQueue.IsEmpty || _readThread.IsAlive /*|| !_readCompletedEvent.WaitOne(0, false)*/)
+            while (!_readBlocksQueue.IsEmpty || _readThread.IsAlive)
             {
                 if (_readBlocksQueue.TryDequeue(out var tempBlock))
                 {
@@ -240,7 +228,6 @@ namespace BlockArchiver
                     }
                 }
             }
-            //_writeCompletedEvent.Set();
         }
     }
 
