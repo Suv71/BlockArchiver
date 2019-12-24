@@ -48,6 +48,7 @@
     <Compile Include="BlockInfo.cs" />
     <Compile Include="Compressor.cs" />
     <Compile Include="Decompressor.cs" />
+    <Compile Include="ErrorEventArgs.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProgressEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

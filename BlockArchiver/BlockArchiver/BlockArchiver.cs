@@ -14,10 +14,11 @@ namespace BlockArchiver
         protected ThreadsDispatcher _dispathcer;
         protected string _inputFileName;
         protected string _outputFileName;
-        protected bool _isCancelled;
+        protected bool _isError;
         protected Stopwatch _watch;
         
         public event EventHandler<ProgressEventArgs> Progress;
+        public event EventHandler<ErrorEventArgs> Error;
 
         public BlockArchiver(string inputFileName, string outputFileName)
         {
@@ -26,11 +27,22 @@ namespace BlockArchiver
             _outputFileName = outputFileName;
             _readBlocks = new ConcurrentQueue<BlockInfo>();
             _blocksToWrite = new ConcurrentDictionary<int, BlockInfo>();
-            _isCancelled = false;
+            _isError = false;
             _watch = new Stopwatch();
         }
-        
-        public virtual long Do()
+
+        public void OnError(ErrorEventArgs args)
+        {
+            _isError = true;
+            Error?.Invoke(this, args);
+        }
+
+        public void OnProgress(ProgressEventArgs args)
+        {
+            Progress?.Invoke(this, args);
+        }
+
+        public virtual int Do()
         {
             _watch.Start();
 
@@ -41,7 +53,8 @@ namespace BlockArchiver
 
             _watch.Stop();
 
-            return _watch.ElapsedMilliseconds;
+            OnProgress(new ProgressEventArgs((int)_watch.ElapsedMilliseconds));
+            return _isError ? 1 : 0;
         }
 
         protected abstract void ReadBlocks();
@@ -50,28 +63,35 @@ namespace BlockArchiver
 
         protected virtual void WriteBlocks()
         {
-            using (var outputStream = File.Create(_outputFileName))
+            try
             {
-                var currentBlockNumber = 1;
-                while (!_blocksToWrite.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver())
+                using (var outputStream = File.Create(_outputFileName))
                 {
-                    if (_dispathcer.IsReadingOnPause() && _readBlocks.IsEmpty)
+                    var currentBlockNumber = 1;
+                    while (!_isError && (!_blocksToWrite.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver()))
                     {
-                        GC.Collect();
-                        _dispathcer.ContinueReading();
-                    }
+                        if (_dispathcer.IsReadingOnPause() && _readBlocks.IsEmpty)
+                        {
+                            GC.Collect();
+                            _dispathcer.ContinueReading();
+                        }
 
-                    if (_blocksToWrite.TryRemove(currentBlockNumber, out var tempBlock))
-                    {
-                        outputStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
-                        Progress.Invoke(this, new ProgressEventArgs(currentBlockNumber));
-                        currentBlockNumber++;
-                    }
-                    else
-                    {
-                        _dispathcer.PauseWriting();
+                        if (_blocksToWrite.TryRemove(currentBlockNumber, out var tempBlock))
+                        {
+                            outputStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
+                            Progress.Invoke(this, new ProgressEventArgs(currentBlockNumber));
+                            currentBlockNumber++;
+                        }
+                        else
+                        {
+                            _dispathcer.PauseWriting();
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                OnError(new ErrorEventArgs($"Возникла ошибка при записи блоков в файл: {ex.Message}"));
             }
         }
     }

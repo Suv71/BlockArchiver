@@ -13,54 +13,68 @@ namespace BlockArchiver
 
         protected override void ReadBlocks()
         {
-            using (var inputStream = File.OpenRead(_inputFileName))
+            try
             {
-                var currentBlockNumber = 1;
-                byte[] readBlock;
-                var lengthBlock = new byte[8];
-
-                while (inputStream.Position < inputStream.Length)
+                using (var inputStream = File.OpenRead(_inputFileName))
                 {
-                    inputStream.Read(lengthBlock, 0, lengthBlock.Length);
-                    var compressedBlockLength = BitConverter.ToInt32(lengthBlock, 4);
+                    var currentBlockNumber = 1;
+                    byte[] readBlock;
+                    var lengthBlock = new byte[8];
 
-                    readBlock = new byte[compressedBlockLength];
-                    lengthBlock.CopyTo(readBlock, 0);
-
-                    inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
-
-                    _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
-
-                    if (_dispathcer.IsUsedMemoryMoreLimit())
+                    while (!_isError && inputStream.Position < inputStream.Length)
                     {
-                        GC.Collect();
-                        _dispathcer.PauseReading();
+                        inputStream.Read(lengthBlock, 0, lengthBlock.Length);
+                        var compressedBlockLength = BitConverter.ToInt32(lengthBlock, 4);
+
+                        readBlock = new byte[compressedBlockLength];
+                        lengthBlock.CopyTo(readBlock, 0);
+
+                        inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
+
+                        _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+
+                        if (_dispathcer.IsUsedMemoryMoreLimit())
+                        {
+                            GC.Collect();
+                            _dispathcer.PauseReading();
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                OnError(new ErrorEventArgs($"Возникла ошибка при чтении блоков из файла: {ex.Message}"));
             }
         }
 
         protected override void ProcessReadBlocks()
         {
-            while (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver())
+            try
             {
-                if (_readBlocks.TryDequeue(out var tempBlock))
+                while (!_isError && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
                 {
-                    var uncompressedBlockLength = BitConverter.ToInt32(tempBlock.Data, tempBlock.Data.Length - _intBlockLength);
-                    var uncompressedBlock = new byte[uncompressedBlockLength];
-
-                    using (var memoryStream = new MemoryStream(tempBlock.Data))
+                    if (_readBlocks.TryDequeue(out var tempBlock))
                     {
-                        using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
+                        var uncompressedBlockLength = BitConverter.ToInt32(tempBlock.Data, tempBlock.Data.Length - _intBlockLength);
+                        var uncompressedBlock = new byte[uncompressedBlockLength];
+
+                        using (var memoryStream = new MemoryStream(tempBlock.Data))
                         {
-                            gzipStream.Read(uncompressedBlock, 0, uncompressedBlockLength);
+                            using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
+                            {
+                                gzipStream.Read(uncompressedBlock, 0, uncompressedBlockLength);
+                            }
+                            tempBlock.Data = uncompressedBlock;
+                            _blocksToWrite.TryAdd(tempBlock.Number, tempBlock);
+                            _dispathcer.ContinueWriting();
                         }
-                        tempBlock.Data = uncompressedBlock;
-                        _blocksToWrite.TryAdd(tempBlock.Number, tempBlock);
-                        _dispathcer.ContinueWriting();
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                OnError(new ErrorEventArgs($"Возникла ошибка при чтении блоков из файла: {ex.Message}"));
+            } 
         }
     }
 }

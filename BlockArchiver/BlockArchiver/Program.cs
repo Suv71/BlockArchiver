@@ -8,10 +8,11 @@ namespace BlockArchiver
         {
             BlockArchiver archiver;
 
-            //archiver = new Compressor("Fias.backup", "Fias.gz");
-            archiver = new Decompressor("Fias.gz", "new-Fias.backup");
+            archiver = new Compressor("Fias.backup", "Fias.gz");
+            //archiver = new Decompressor("Fias.gz", "new-Fias.backup");
 
             archiver.Progress += OnProgress;
+            archiver.Error += OnError;
 
             var k = archiver.Do();
 
@@ -24,6 +25,11 @@ namespace BlockArchiver
         {
             Console.WriteLine();
             Console.WriteLine($"Current progress - {e.Count}");
+        }
+
+        static void OnError(object sender, ErrorEventArgs e)
+        {
+            Console.WriteLine(e.Message);
         }
     }
 }

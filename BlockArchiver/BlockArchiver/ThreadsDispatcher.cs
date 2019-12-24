@@ -50,10 +50,15 @@ namespace BlockArchiver
 
         public void WaitWorkFinish()
         {
-            _writeThread.Join();
+            _readThread?.Join();
+            foreach (var thread in _processThreads)
+            {
+                thread?.Join();
+            }
+            _writeThread?.Join();
         }
 
-        public bool IsReadingNotOver() => _readThread.IsAlive;
+        public bool IsReadingNotOver() => _readThread?.IsAlive ?? false;
 
         public bool IsReadingOnPause() => !_isReadPauseEvent.WaitOne(0, false);
 
@@ -65,7 +70,7 @@ namespace BlockArchiver
 
         public void ContinueReading() => _isReadPauseEvent.Set();
 
-        public bool IsProcessingNotOver() => _processThreads.Any(th => th.IsAlive);
+        public bool IsProcessingNotOver() => _processThreads.Any(th => th?.IsAlive ?? false);
 
         public void PauseWriting()
         {
