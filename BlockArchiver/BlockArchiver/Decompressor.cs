@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BlockArchiver
 {
@@ -34,10 +29,11 @@ namespace BlockArchiver
 
                     inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
 
-                    _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+                    _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
 
-                    if (Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
+                    if (_dispathcer.IsUsedMemoryMoreLimit())
                     {
+                        GC.Collect();
                         _dispathcer.PauseReading();
                     }
                 }
@@ -46,21 +42,21 @@ namespace BlockArchiver
 
         protected override void ProcessReadBlocks()
         {
-            while (!_readBlocksQueue.IsEmpty || _dispathcer.IsReadingNotOver())
+            while (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver())
             {
-                if (_readBlocksQueue.TryDequeue(out var tempBlock))
+                if (_readBlocks.TryDequeue(out var tempBlock))
                 {
-                    var uncompressedBlockSize = BitConverter.ToInt32(tempBlock.Data, tempBlock.Data.Length - 4);
-                    var uncompressedBlock = new byte[uncompressedBlockSize];
+                    var uncompressedBlockLength = BitConverter.ToInt32(tempBlock.Data, tempBlock.Data.Length - _intBlockLength);
+                    var uncompressedBlock = new byte[uncompressedBlockLength];
 
                     using (var memoryStream = new MemoryStream(tempBlock.Data))
                     {
                         using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
                         {
-                            gzipStream.Read(uncompressedBlock, 0, uncompressedBlockSize);
+                            gzipStream.Read(uncompressedBlock, 0, uncompressedBlockLength);
                         }
                         tempBlock.Data = uncompressedBlock;
-                        _blocksToWriteQueue.TryAdd(tempBlock.Number, tempBlock);
+                        _blocksToWrite.TryAdd(tempBlock.Number, tempBlock);
                         _dispathcer.ContinueWriting();
                     }
                 }

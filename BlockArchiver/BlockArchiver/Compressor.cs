@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BlockArchiver
 {
@@ -33,10 +28,11 @@ namespace BlockArchiver
                         readBlock = new byte[inputStream.Length - inputStream.Position];
                     }
                     inputStream.Read(readBlock, 0, readBlock.Length);
-                    _readBlocksQueue.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+                    _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
 
-                    if (Process.GetCurrentProcess().WorkingSet64 > _memoryLimit)
+                    if (_dispathcer.IsUsedMemoryMoreLimit())
                     {
+                        GC.Collect();
                         _dispathcer.PauseReading();
                     }
                 }
@@ -45,9 +41,9 @@ namespace BlockArchiver
 
         protected override void ProcessReadBlocks()
         {
-            while (!_readBlocksQueue.IsEmpty || _dispathcer.IsReadingNotOver())
+            while (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver())
             {
-                if (_readBlocksQueue.TryDequeue(out var tempBlock))
+                if (_readBlocks.TryDequeue(out var tempBlock))
                 {
                     using (var memoryStream = new MemoryStream())
                     {
@@ -59,7 +55,7 @@ namespace BlockArchiver
                         var compressedBlockLengthInBytes = BitConverter.GetBytes(compressedBlock.Length);
                         compressedBlockLengthInBytes.CopyTo(compressedBlock, 4);
                         tempBlock.Data = compressedBlock;
-                        _blocksToWriteQueue.TryAdd(tempBlock.Number, tempBlock);
+                        _blocksToWrite.TryAdd(tempBlock.Number, tempBlock);
                         _dispathcer.ContinueWriting();
                     }
                 }

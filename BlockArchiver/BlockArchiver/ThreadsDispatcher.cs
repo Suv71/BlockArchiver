@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.VisualBasic.Devices;
+using System;
+using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace BlockArchiver
 {
@@ -14,6 +13,8 @@ namespace BlockArchiver
         private Thread[] _processThreads;
         private ManualResetEvent _isWritePauseEvent;
         private ManualResetEvent _isReadPauseEvent;
+        private Process _currentProcess;
+        private long _memoryLimit;
 
         public delegate void ThreadMethod();
 
@@ -22,6 +23,8 @@ namespace BlockArchiver
             _processThreads = new Thread[Environment.ProcessorCount];
             _isWritePauseEvent = new ManualResetEvent(false);
             _isReadPauseEvent = new ManualResetEvent(true);
+            _currentProcess = Process.GetCurrentProcess();
+            _memoryLimit = GetMemoryLimit();
         }
 
         public void StartReadThread(ThreadMethod readingMethod)
@@ -71,8 +74,31 @@ namespace BlockArchiver
         }
 
         public void ContinueWriting() => _isWritePauseEvent.Set();
-        
-        
-        
+
+        public bool IsUsedMemoryMoreLimit()
+        {
+            _currentProcess.Refresh();
+            return _currentProcess.WorkingSet64 > _memoryLimit;
+        }
+
+        private long GetMemoryLimit()
+        {
+            long memoryLimit;
+            var availableHalfMemory = (long)(new ComputerInfo().AvailablePhysicalMemory / 2);
+            var memoryLimitFor32BitProcess = (long)(1.4 * 1024 * 1024 * 1024);
+
+            if (!Environment.Is64BitProcess)
+            {
+                memoryLimit = memoryLimitFor32BitProcess < availableHalfMemory
+                                ? memoryLimitFor32BitProcess
+                                : availableHalfMemory;
+            }
+            else
+            {
+                memoryLimit = availableHalfMemory;
+            }
+
+            return memoryLimit;
+        }
     }
 }

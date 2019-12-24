@@ -8,8 +8,8 @@ namespace BlockArchiver
         {
             BlockArchiver archiver;
 
-            archiver = new Compressor("Fias.backup", "Fias.gz");
-            //archiver = new Decompressor("Fias.gz", "new-Fias.backup");
+            //archiver = new Compressor("Fias.backup", "Fias.gz");
+            archiver = new Decompressor("Fias.gz", "new-Fias.backup");
 
             archiver.Progress += OnProgress;
 
