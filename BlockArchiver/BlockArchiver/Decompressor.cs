@@ -28,10 +28,9 @@ namespace BlockArchiver
 
                         readBlock = new byte[compressedBlockLength];
                         lengthBlock.CopyTo(readBlock, 0);
-
                         inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
-
                         _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
+                        OnProgress(new ProgressEventArgs(inputStream.Position, inputStream.Length));
 
                         if (_dispathcer.IsUsedMemoryMoreLimit())
                         {
@@ -43,7 +42,7 @@ namespace BlockArchiver
             }
             catch (Exception ex)
             {
-                OnError(new ErrorEventArgs($"Возникла ошибка при чтении блоков из файла: {ex.Message}"));
+                OnError(new ErrorEventArgs($"Возникла ошибка при чтении блоков из файла: {ex.Message}", ex));
             }
         }
 
@@ -73,7 +72,7 @@ namespace BlockArchiver
             }
             catch (Exception ex)
             {
-                OnError(new ErrorEventArgs($"Возникла ошибка при чтении блоков из файла: {ex.Message}"));
+                OnError(new ErrorEventArgs($"Возникла ошибка при чтении блоков из файла: {ex.Message}", ex));
             } 
         }
     }

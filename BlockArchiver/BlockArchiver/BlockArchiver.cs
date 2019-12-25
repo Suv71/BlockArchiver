@@ -44,16 +44,10 @@ namespace BlockArchiver
 
         public virtual int Do()
         {
-            _watch.Start();
-
             _dispathcer.StartReadThread(ReadBlocks);
             _dispathcer.StartProcessThreads(ProcessReadBlocks);
             _dispathcer.StartWriteThread(WriteBlocks);
             _dispathcer.WaitWorkFinish();
-
-            _watch.Stop();
-
-            OnProgress(new ProgressEventArgs((int)_watch.ElapsedMilliseconds));
             return _isError ? 1 : 0;
         }
 
@@ -79,7 +73,7 @@ namespace BlockArchiver
                         if (_blocksToWrite.TryRemove(currentBlockNumber, out var tempBlock))
                         {
                             outputStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
-                            Progress.Invoke(this, new ProgressEventArgs(currentBlockNumber));
+                            //OnProgress(new ProgressEventArgs(currentBlockNumber));
                             currentBlockNumber++;
                         }
                         else
@@ -91,7 +85,7 @@ namespace BlockArchiver
             }
             catch (Exception ex)
             {
-                OnError(new ErrorEventArgs($"Возникла ошибка при записи блоков в файл: {ex.Message}"));
+                OnError(new ErrorEventArgs($"Возникла ошибка при записи блоков в файл: {ex.Message}", ex));
             }
         }
     }
