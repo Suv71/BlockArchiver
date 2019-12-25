@@ -20,6 +20,8 @@ namespace BlockArchiver
                     var currentBlockNumber = 1;
                     byte[] readBlock;
                     var lengthBlock = new byte[8];
+                    inputStream.Read(lengthBlock, 0, lengthBlock.Length);
+                    _uncompressedFileLength = BitConverter.ToInt64(lengthBlock, 0);
 
                     while (!_isError && inputStream.Position < inputStream.Length)
                     {
@@ -30,7 +32,6 @@ namespace BlockArchiver
                         lengthBlock.CopyTo(readBlock, 0);
                         inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);
                         _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
-                        OnProgress(new ProgressEventArgs(inputStream.Position, inputStream.Length));
 
                         if (_dispathcer.IsUsedMemoryMoreLimit())
                         {

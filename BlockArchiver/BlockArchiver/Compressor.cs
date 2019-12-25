@@ -17,13 +17,14 @@ namespace BlockArchiver
             {
                 using (var inputStream = File.OpenRead(_inputFileName))
                 {
+                    _uncompressedFileLength = inputStream.Length;
                     var currentBlockNumber = 1;
                     byte[] readBlock;
                     while (!_isError && inputStream.Position < inputStream.Length)
                     {
-                        if (inputStream.Length - inputStream.Position >= _blockSize)
+                        if (inputStream.Length - inputStream.Position >= _blockLength)
                         {
-                            readBlock = new byte[_blockSize];
+                            readBlock = new byte[_blockLength];
                         }
                         else
                         {
@@ -31,7 +32,6 @@ namespace BlockArchiver
                         }
                         inputStream.Read(readBlock, 0, readBlock.Length);
                         _readBlocks.Enqueue(new BlockInfo() { Number = currentBlockNumber++, Data = readBlock });
-                        OnProgress(new ProgressEventArgs(inputStream.Position, inputStream.Length));
 
                         if (_dispathcer.IsUsedMemoryMoreLimit())
                         {
@@ -75,6 +75,12 @@ namespace BlockArchiver
             {
                 OnError(new ErrorEventArgs($"Возникла ошибка при обработке блоков: {ex.Message}", ex));
             }
+        }
+
+        protected override void WriteUncompressedFileLength(FileStream outputStream)
+        {
+            var tempBlock = BitConverter.GetBytes(_uncompressedFileLength);
+            outputStream.Write(tempBlock, 0, tempBlock.Length);
         }
     }
 }

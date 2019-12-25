@@ -53,9 +53,14 @@ namespace BlockArchiver
                 throw new ArgumentException("Входного файла не существует");
             }
 
-            if (!new FileInfo(args[1]).Extension.Equals("gz"))
+            if (args[0].Equals("compress") && !new FileInfo(args[2]).Extension.Equals(".gz"))
             {
-                throw new ArgumentException("Входной файл должен иметь расширение .gz");
+                throw new ArgumentException("При сжатии выходной файл должен иметь расширение .gz");
+            }
+
+            if (args[0].Equals("decompress") && !new FileInfo(args[1]).Extension.Equals(".gz"))
+            {
+                throw new ArgumentException("При распаковке входной файл должен иметь расширение .gz");
             }
         }
 

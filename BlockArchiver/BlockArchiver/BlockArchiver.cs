@@ -8,14 +8,14 @@ namespace BlockArchiver
     public abstract class BlockArchiver
     {
         protected const int _intBlockLength = 4;
-        protected const int _blockSize = 6 * 1024 * 1024;
+        protected const int _blockLength = 6 * 1024 * 1024;
         protected ConcurrentQueue<BlockInfo> _readBlocks;
         protected ConcurrentDictionary<int, BlockInfo> _blocksToWrite;
         protected ThreadsDispatcher _dispathcer;
         protected string _inputFileName;
         protected string _outputFileName;
+        protected long _uncompressedFileLength;
         protected bool _isError;
-        protected Stopwatch _watch;
         
         public event EventHandler<ProgressEventArgs> Progress;
         public event EventHandler<ErrorEventArgs> Error;
@@ -28,7 +28,6 @@ namespace BlockArchiver
             _readBlocks = new ConcurrentQueue<BlockInfo>();
             _blocksToWrite = new ConcurrentDictionary<int, BlockInfo>();
             _isError = false;
-            _watch = new Stopwatch();
         }
 
         public void OnError(ErrorEventArgs args)
@@ -61,6 +60,7 @@ namespace BlockArchiver
             {
                 using (var outputStream = File.Create(_outputFileName))
                 {
+                    WriteUncompressedFileLength(outputStream);
                     var currentBlockNumber = 1;
                     while (!_isError && (!_blocksToWrite.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver()))
                     {
@@ -73,7 +73,7 @@ namespace BlockArchiver
                         if (_blocksToWrite.TryRemove(currentBlockNumber, out var tempBlock))
                         {
                             outputStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
-                            //OnProgress(new ProgressEventArgs(currentBlockNumber));
+                            OnProgress(new ProgressEventArgs(currentBlockNumber, _uncompressedFileLength / _blockLength));
                             currentBlockNumber++;
                         }
                         else
@@ -87,6 +87,10 @@ namespace BlockArchiver
             {
                 OnError(new ErrorEventArgs($"Возникла ошибка при записи блоков в файл: {ex.Message}", ex));
             }
+        }
+
+        protected virtual void WriteUncompressedFileLength(FileStream outputStream)
+        { 
         }
     }
 }
