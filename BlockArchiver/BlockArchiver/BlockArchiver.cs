@@ -7,7 +7,8 @@ namespace BlockArchiver
 {
     public abstract class BlockArchiver
     {
-        protected const int _intBlockLength = 4;
+        protected const int _int32BlockLength = 4;
+        protected const int _int64BlockLength = 8;
         protected const int _blockLength = 6 * 1024 * 1024;
         protected ConcurrentQueue<BlockInfo> _readBlocks;
         protected ConcurrentDictionary<int, BlockInfo> _blocksToWrite;
@@ -28,17 +29,6 @@ namespace BlockArchiver
             _readBlocks = new ConcurrentQueue<BlockInfo>();
             _blocksToWrite = new ConcurrentDictionary<int, BlockInfo>();
             _isError = false;
-        }
-
-        public void OnError(ErrorEventArgs args)
-        {
-            _isError = true;
-            Error?.Invoke(this, args);
-        }
-
-        public void OnProgress(ProgressEventArgs args)
-        {
-            Progress?.Invoke(this, args);
         }
 
         public virtual int Do()
@@ -70,9 +60,9 @@ namespace BlockArchiver
                             _dispathcer.ContinueReading();
                         }
 
-                        if (_blocksToWrite.TryRemove(currentBlockNumber, out var tempBlock))
+                        if (_blocksToWrite.TryRemove(currentBlockNumber, out var currentBlockInfo))
                         {
-                            outputStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
+                            outputStream.Write(currentBlockInfo.Data, 0, currentBlockInfo.Data.Length);
                             OnProgress(new ProgressEventArgs(currentBlockNumber, _uncompressedFileLength / _blockLength));
                             currentBlockNumber++;
                         }
@@ -91,6 +81,17 @@ namespace BlockArchiver
 
         protected virtual void WriteUncompressedFileLength(FileStream outputStream)
         { 
+        }
+
+        protected void OnError(ErrorEventArgs args)
+        {
+            _isError = true;
+            Error?.Invoke(this, args);
+        }
+
+        protected void OnProgress(ProgressEventArgs args)
+        {
+            Progress?.Invoke(this, args);
         }
     }
 }

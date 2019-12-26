@@ -19,7 +19,7 @@ namespace BlockArchiver
                 {
                     var currentBlockNumber = 1;
                     byte[] readBlock;
-                    var lengthBlock = new byte[8];
+                    var lengthBlock = new byte[_int64BlockLength];
                     inputStream.Read(lengthBlock, 0, lengthBlock.Length);
                     _uncompressedFileLength = BitConverter.ToInt64(lengthBlock, 0);
 
@@ -53,19 +53,19 @@ namespace BlockArchiver
             {
                 while (!_isError && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
                 {
-                    if (_readBlocks.TryDequeue(out var tempBlock))
+                    if (_readBlocks.TryDequeue(out var blockInfo))
                     {
-                        var uncompressedBlockLength = BitConverter.ToInt32(tempBlock.Data, tempBlock.Data.Length - _intBlockLength);
+                        var uncompressedBlockLength = BitConverter.ToInt32(blockInfo.Data, blockInfo.Data.Length - _int32BlockLength);
                         var uncompressedBlock = new byte[uncompressedBlockLength];
 
-                        using (var memoryStream = new MemoryStream(tempBlock.Data))
+                        using (var memoryStream = new MemoryStream(blockInfo.Data))
                         {
                             using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
                             {
                                 gzipStream.Read(uncompressedBlock, 0, uncompressedBlockLength);
                             }
-                            tempBlock.Data = uncompressedBlock;
-                            _blocksToWrite.TryAdd(tempBlock.Number, tempBlock);
+                            blockInfo.Data = uncompressedBlock;
+                            _blocksToWrite.TryAdd(blockInfo.Number, blockInfo);
                             _dispathcer.ContinueWriting();
                         }
                     }

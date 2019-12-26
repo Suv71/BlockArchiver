@@ -53,19 +53,19 @@ namespace BlockArchiver
             {
                 while (!_isError && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
                 {
-                    if (_readBlocks.TryDequeue(out var tempBlock))
+                    if (_readBlocks.TryDequeue(out var blockInfo))
                     {
                         using (var memoryStream = new MemoryStream())
                         {
                             using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress))
                             {
-                                gzipStream.Write(tempBlock.Data, 0, tempBlock.Data.Length);
+                                gzipStream.Write(blockInfo.Data, 0, blockInfo.Data.Length);
                             }
                             var compressedBlock = memoryStream.ToArray();
-                            var compressedBlockLengthInBytes = BitConverter.GetBytes(compressedBlock.Length);
-                            compressedBlockLengthInBytes.CopyTo(compressedBlock, 4);
-                            tempBlock.Data = compressedBlock;
-                            _blocksToWrite.TryAdd(tempBlock.Number, tempBlock);
+                            var compressedBlockLengthBytes = BitConverter.GetBytes(compressedBlock.Length);
+                            compressedBlockLengthBytes.CopyTo(compressedBlock, 4);
+                            blockInfo.Data = compressedBlock;
+                            _blocksToWrite.TryAdd(blockInfo.Number, blockInfo);
                             _dispathcer.ContinueWriting();
                         }
                     }
@@ -79,8 +79,8 @@ namespace BlockArchiver
 
         protected override void WriteUncompressedFileLength(FileStream outputStream)
         {
-            var tempBlock = BitConverter.GetBytes(_uncompressedFileLength);
-            outputStream.Write(tempBlock, 0, tempBlock.Length);
+            var uncompressedFileLengthBytes = BitConverter.GetBytes(_uncompressedFileLength);
+            outputStream.Write(uncompressedFileLengthBytes, 0, uncompressedFileLengthBytes.Length);
         }
     }
 }

@@ -11,8 +11,8 @@ namespace BlockArchiver
         private Thread _readThread;
         private Thread _writeThread;
         private Thread[] _processThreads;
-        private ManualResetEvent _isWritePauseEvent;
-        private ManualResetEvent _isReadPauseEvent;
+        private ManualResetEvent _writePauseEvent;
+        private ManualResetEvent _readPauseEvent;
         private Process _currentProcess;
         private long _memoryLimit;
 
@@ -21,8 +21,8 @@ namespace BlockArchiver
         public ThreadsDispatcher()
         {
             _processThreads = new Thread[Environment.ProcessorCount];
-            _isWritePauseEvent = new ManualResetEvent(false);
-            _isReadPauseEvent = new ManualResetEvent(true);
+            _writePauseEvent = new ManualResetEvent(false);
+            _readPauseEvent = new ManualResetEvent(true);
             _currentProcess = Process.GetCurrentProcess();
             _memoryLimit = GetMemoryLimit();
         }
@@ -60,25 +60,25 @@ namespace BlockArchiver
 
         public bool IsReadingNotOver() => _readThread?.IsAlive ?? false;
 
-        public bool IsReadingOnPause() => !_isReadPauseEvent.WaitOne(0, false);
+        public bool IsReadingOnPause() => !_readPauseEvent.WaitOne(0, false);
 
         public void PauseReading()
         {
-            _isReadPauseEvent.Reset();
-            _isReadPauseEvent.WaitOne();
+            _readPauseEvent.Reset();
+            _readPauseEvent.WaitOne();
         }
 
-        public void ContinueReading() => _isReadPauseEvent.Set();
+        public void ContinueReading() => _readPauseEvent.Set();
 
         public bool IsProcessingNotOver() => _processThreads.Any(th => th?.IsAlive ?? false);
 
         public void PauseWriting()
         {
-            _isWritePauseEvent.Reset();
-            _isWritePauseEvent.WaitOne();
+            _writePauseEvent.Reset();
+            _writePauseEvent.WaitOne();
         }
 
-        public void ContinueWriting() => _isWritePauseEvent.Set();
+        public void ContinueWriting() => _writePauseEvent.Set();
 
         public bool IsUsedMemoryMoreLimit()
         {
@@ -89,18 +89,18 @@ namespace BlockArchiver
         private long GetMemoryLimit()
         {
             long memoryLimit;
-            var availableHalfMemory = (long)(new ComputerInfo().AvailablePhysicalMemory / 2);
+            var halfAvailableMemory = (long)(new ComputerInfo().AvailablePhysicalMemory / 2);
             var memoryLimitFor32BitProcess = (long)(1.4 * 1024 * 1024 * 1024);
 
             if (!Environment.Is64BitProcess)
             {
-                memoryLimit = memoryLimitFor32BitProcess < availableHalfMemory
+                memoryLimit = memoryLimitFor32BitProcess < halfAvailableMemory
                                 ? memoryLimitFor32BitProcess
-                                : availableHalfMemory;
+                                : halfAvailableMemory;
             }
             else
             {
-                memoryLimit = availableHalfMemory;
+                memoryLimit = halfAvailableMemory;
             }
 
             return memoryLimit;
