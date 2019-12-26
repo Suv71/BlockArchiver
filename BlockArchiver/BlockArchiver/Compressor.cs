@@ -20,7 +20,7 @@ namespace BlockArchiver
                     _uncompressedFileLength = inputStream.Length;
                     var currentBlockNumber = 1;
                     byte[] readBlock;
-                    while (!_isError && inputStream.Position < inputStream.Length)
+                    while (!_isCancelled && inputStream.Position < inputStream.Length)
                     {
                         if (inputStream.Length - inputStream.Position >= _blockLength)
                         {
@@ -51,7 +51,7 @@ namespace BlockArchiver
         {
             try
             {
-                while (!_isError && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
+                while (!_isCancelled && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
                 {
                     if (_readBlocks.TryDequeue(out var blockInfo))
                     {

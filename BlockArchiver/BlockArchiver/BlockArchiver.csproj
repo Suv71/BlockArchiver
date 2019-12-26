@@ -52,7 +52,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="ProgressEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ThreadsDispatcher.cs" />
+    <Compile Include="Dispatcher.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

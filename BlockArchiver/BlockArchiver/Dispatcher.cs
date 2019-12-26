@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace BlockArchiver
 {
-    public class ThreadsDispatcher
+    public class Dispatcher
     {
         private Thread _readThread;
         private Thread _writeThread;
@@ -18,7 +18,7 @@ namespace BlockArchiver
 
         public delegate void ThreadMethod();
 
-        public ThreadsDispatcher()
+        public Dispatcher()
         {
             _processThreads = new Thread[Environment.ProcessorCount];
             _writePauseEvent = new ManualResetEvent(false);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
 
 namespace BlockArchiver
@@ -12,23 +11,24 @@ namespace BlockArchiver
         protected const int _blockLength = 6 * 1024 * 1024;
         protected ConcurrentQueue<BlockInfo> _readBlocks;
         protected ConcurrentDictionary<int, BlockInfo> _blocksToWrite;
-        protected ThreadsDispatcher _dispathcer;
+        protected Dispatcher _dispathcer;
         protected string _inputFileName;
         protected string _outputFileName;
-        protected long _uncompressedFileLength;
-        protected bool _isError;
+        protected long _uncompressedFileLength; 
+        protected int _totalBlockNumber;
+        protected bool _isCancelled;
         
         public event EventHandler<ProgressEventArgs> Progress;
         public event EventHandler<ErrorEventArgs> Error;
 
         public BlockArchiver(string inputFileName, string outputFileName)
         {
-            _dispathcer = new ThreadsDispatcher();
+            _dispathcer = new Dispatcher();
             _inputFileName = inputFileName;
             _outputFileName = outputFileName;
             _readBlocks = new ConcurrentQueue<BlockInfo>();
             _blocksToWrite = new ConcurrentDictionary<int, BlockInfo>();
-            _isError = false;
+            _isCancelled = false;
         }
 
         public virtual int Do()
@@ -37,7 +37,12 @@ namespace BlockArchiver
             _dispathcer.StartProcessThreads(ProcessReadBlocks);
             _dispathcer.StartWriteThread(WriteBlocks);
             _dispathcer.WaitWorkFinish();
-            return _isError ? 1 : 0;
+            return _isCancelled ? 1 : 0;
+        }
+
+        public void Cancel()
+        {
+            _isCancelled = true;
         }
 
         protected abstract void ReadBlocks();
@@ -52,7 +57,7 @@ namespace BlockArchiver
                 {
                     WriteUncompressedFileLength(outputStream);
                     var currentBlockNumber = 1;
-                    while (!_isError && (!_blocksToWrite.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver()))
+                    while (!_isCancelled && (!_blocksToWrite.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver()))
                     {
                         if (_dispathcer.IsReadingOnPause() && _readBlocks.IsEmpty)
                         {
@@ -63,7 +68,7 @@ namespace BlockArchiver
                         if (_blocksToWrite.TryRemove(currentBlockNumber, out var currentBlockInfo))
                         {
                             outputStream.Write(currentBlockInfo.Data, 0, currentBlockInfo.Data.Length);
-                            OnProgress(new ProgressEventArgs(currentBlockNumber, _uncompressedFileLength / _blockLength));
+                            OnProgress(new ProgressEventArgs(currentBlockNumber, _totalBlockNumber));
                             currentBlockNumber++;
                         }
                         else
@@ -80,12 +85,21 @@ namespace BlockArchiver
         }
 
         protected virtual void WriteUncompressedFileLength(FileStream outputStream)
-        { 
+        {
+        }
+
+        protected void SetTotalBlockNumber()
+        {
+            _totalBlockNumber = (int)(_uncompressedFileLength / _blockLength);
+            if (_uncompressedFileLength % _blockLength != 0)
+            {
+                _totalBlockNumber += 1;
+            }
         }
 
         protected void OnError(ErrorEventArgs args)
         {
-            _isError = true;
+            _isCancelled = true;
             Error?.Invoke(this, args);
         }
 

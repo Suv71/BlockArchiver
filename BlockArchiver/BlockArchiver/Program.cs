@@ -10,7 +10,7 @@ namespace BlockArchiver
             var result = 0;
             try
             {
-                CheckArgrs(args);
+                CheckArgs(args);
                 BlockArchiver archiver;
 
                 if (args[0].Equals("compress"))
@@ -24,19 +24,25 @@ namespace BlockArchiver
 
                 archiver.Progress += OnProgress;
                 archiver.Error += OnError;
+                Console.CancelKeyPress += (sender, e) =>
+                {
+                    e.Cancel = true;
+                    archiver.Cancel();
+                    Console.Write($"{Environment.NewLine}Операция была отменена");
+                };
 
                 result = archiver.Do();
             }
             catch (ArgumentException ex)
             {
                 Console.WriteLine(ex.Message);
+                PrintHelp();
                 result = 1;
             }
-
             return result;
         }
 
-        static void CheckArgrs(string[] args)
+        static void CheckArgs(string[] args)
         {
             if (args.Length != 3)
             {
@@ -73,6 +79,11 @@ namespace BlockArchiver
         static void OnError(object sender, ErrorEventArgs e)
         {
             Console.WriteLine(e.Message);
+        }
+
+        static void PrintHelp()
+        {
+            Console.WriteLine("Для работы программы наберите: BlockArchiver compress|decompress <входной файл> <выходной файл>");
         }
     }
 }

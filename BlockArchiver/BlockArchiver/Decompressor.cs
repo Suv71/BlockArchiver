@@ -23,7 +23,7 @@ namespace BlockArchiver
                     inputStream.Read(lengthBlock, 0, lengthBlock.Length);
                     _uncompressedFileLength = BitConverter.ToInt64(lengthBlock, 0);
 
-                    while (!_isError && inputStream.Position < inputStream.Length)
+                    while (!_isCancelled && inputStream.Position < inputStream.Length)
                     {
                         inputStream.Read(lengthBlock, 0, lengthBlock.Length);
                         var compressedBlockLength = BitConverter.ToInt32(lengthBlock, 4);
@@ -51,7 +51,7 @@ namespace BlockArchiver
         {
             try
             {
-                while (!_isError && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
+                while (!_isCancelled && (!_readBlocks.IsEmpty || _dispathcer.IsReadingNotOver()))
                 {
                     if (_readBlocks.TryDequeue(out var blockInfo))
                     {
