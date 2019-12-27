@@ -8,6 +8,15 @@ namespace BlockArchiver
         static int Main(string[] args)
         {
             var result = 0;
+
+            //Если запустить программу не из консоли, то раскомментируйте этот код и задайте нужные параметры
+            //args = new string[]
+            //{
+            //    "compress", // compress или decompress
+            //    "текст.txt", //название входного файла с расширением
+            //    "text.gz" //название выходного файла с расширением
+            //};
+
             try
             {
                 CheckArgs(args);
@@ -28,7 +37,7 @@ namespace BlockArchiver
                 {
                     e.Cancel = true;
                     archiver.Cancel();
-                    Console.Write($"{Environment.NewLine}Операция была отменена");
+                    Console.WriteLine($"{Environment.NewLine}Операция была отменена");
                 };
 
                 result = archiver.Do();
@@ -84,6 +93,7 @@ namespace BlockArchiver
         static void PrintHelp()
         {
             Console.WriteLine("Для работы программы наберите: BlockArchiver compress|decompress <входной файл> <выходной файл>");
+            Console.WriteLine("Для отмены работы нажмите Ctrl + C");
         }
     }
 }

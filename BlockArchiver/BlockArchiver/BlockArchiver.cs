@@ -42,6 +42,7 @@ namespace BlockArchiver
 
         public void Cancel()
         {
+            _dispathcer.ActivatePausedThreads();
             _isCancelled = true;
         }
 

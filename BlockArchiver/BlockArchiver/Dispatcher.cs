@@ -86,6 +86,12 @@ namespace BlockArchiver
             return _currentProcess.WorkingSet64 > _memoryLimit;
         }
 
+        public void ActivatePausedThreads()
+        {
+            ContinueReading();
+            ContinueWriting();
+        }
+
         private long GetMemoryLimit()
         {
             long memoryLimit;

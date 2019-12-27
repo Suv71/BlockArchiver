@@ -17,17 +17,17 @@ namespace BlockArchiver
             {
                 using (var inputStream = File.OpenRead(_inputFileName))
                 {
-                    var currentBlockNumber = 1;
-                    byte[] readBlock;
                     var lengthBlock = new byte[_int64BlockLength];
                     inputStream.Read(lengthBlock, 0, lengthBlock.Length);
                     _uncompressedFileLength = BitConverter.ToInt64(lengthBlock, 0);
+                    SetTotalBlockNumber();
+                    var currentBlockNumber = 1;
+                    byte[] readBlock;
 
                     while (!_isCancelled && inputStream.Position < inputStream.Length)
                     {
                         inputStream.Read(lengthBlock, 0, lengthBlock.Length);
                         var compressedBlockLength = BitConverter.ToInt32(lengthBlock, 4);
-
                         readBlock = new byte[compressedBlockLength];
                         lengthBlock.CopyTo(readBlock, 0);
                         inputStream.Read(readBlock, lengthBlock.Length, compressedBlockLength - lengthBlock.Length);

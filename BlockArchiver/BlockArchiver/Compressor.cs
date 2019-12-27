@@ -18,6 +18,7 @@ namespace BlockArchiver
                 using (var inputStream = File.OpenRead(_inputFileName))
                 {
                     _uncompressedFileLength = inputStream.Length;
+                    SetTotalBlockNumber();
                     var currentBlockNumber = 1;
                     byte[] readBlock;
                     while (!_isCancelled && inputStream.Position < inputStream.Length)
