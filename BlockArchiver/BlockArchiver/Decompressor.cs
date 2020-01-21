@@ -35,7 +35,7 @@ namespace BlockArchiver
 
                         if (_dispathcer.IsUsedMemoryMoreLimit())
                         {
-                            GC.Collect();
+                            //GC.Collect();
                             _dispathcer.PauseReading();
                         }
                     }

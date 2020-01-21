@@ -54,7 +54,8 @@ namespace BlockArchiver
         {
             try
             {
-                using (var outputStream = File.Create(_outputFileName))
+                //using (var outputStream = File.Create(_outputFileName))
+                using (var outputStream = new FileStream(_outputFileName, FileMode.Create, FileAccess.Write, FileShare.Write, _blockLength))
                 {
                     WriteUncompressedFileLength(outputStream);
                     var currentBlockNumber = 1;
@@ -62,7 +63,7 @@ namespace BlockArchiver
                     {
                         if (_dispathcer.IsReadingOnPause() && _readBlocks.IsEmpty)
                         {
-                            GC.Collect();
+                            //GC.Collect();
                             _dispathcer.ContinueReading();
                         }
 
