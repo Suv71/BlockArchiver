@@ -42,8 +42,8 @@ namespace BlockArchiver
 
         public void Cancel()
         {
-            _dispathcer.ActivatePausedThreads();
             _isCancelled = true;
+            _dispathcer.ActivatePausedThreads();
         }
 
         protected abstract void ReadBlocks();
@@ -54,16 +54,14 @@ namespace BlockArchiver
         {
             try
             {
-                //using (var outputStream = File.Create(_outputFileName))
-                using (var outputStream = new FileStream(_outputFileName, FileMode.Create, FileAccess.Write, FileShare.Write, _blockLength))
+                using (var outputStream = new FileStream(_outputFileName, FileMode.Create, FileAccess.Write, FileShare.Write))
                 {
                     WriteUncompressedFileLength(outputStream);
                     var currentBlockNumber = 1;
                     while (!_isCancelled && (!_blocksToWrite.IsEmpty || _dispathcer.IsReadingNotOver() || _dispathcer.IsProcessingNotOver()))
                     {
-                        if (_dispathcer.IsReadingOnPause() && _readBlocks.IsEmpty)
+                        if (_readBlocks.IsEmpty && _dispathcer.IsReadingOnPause())
                         {
-                            //GC.Collect();
                             _dispathcer.ContinueReading();
                         }
 
@@ -102,6 +100,7 @@ namespace BlockArchiver
         protected void OnError(ErrorEventArgs args)
         {
             _isCancelled = true;
+            _dispathcer.ActivatePausedThreads();
             Error?.Invoke(this, args);
         }
 

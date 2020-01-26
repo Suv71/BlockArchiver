@@ -15,8 +15,7 @@ namespace BlockArchiver
         {
             try
             {
-                //using (var inputStream = File.OpenRead(_inputFileName))
-                using (var inputStream = new FileStream(_inputFileName, FileMode.Open, FileAccess.Read, FileShare.Read, _blockLength))
+                using (var inputStream = new FileStream(_inputFileName, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     _uncompressedFileLength = inputStream.Length;
                     SetTotalBlockNumber();
@@ -37,7 +36,6 @@ namespace BlockArchiver
 
                         if (_dispathcer.IsUsedMemoryMoreLimit())
                         {
-                            //GC.Collect();
                             _dispathcer.PauseReading();
                         }
                     }
